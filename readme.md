@@ -14,6 +14,22 @@ A **Master Agent** orchestrates all three.
 
 - LangGraph / CrewAI · GPT-4o · Playwright · FastAPI · Next.js
 
+## Getting Started
+
+```bash
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies and create .venv
+uv sync
+
+# Install Playwright browser
+uv run playwright install chromium
+
+# Run
+uv run python main.py
+```
+
 ## Docs
 
 - [`prd.md`](./prd.md) — full product requirements

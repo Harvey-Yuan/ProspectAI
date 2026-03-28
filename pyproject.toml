@@ -1,0 +1,33 @@
+[project]
+name = "prospect-ai"
+version = "0.1.0"
+description = "AI Sales Outreach Multi-Agent System"
+requires-python = ">=3.11,<3.14"
+
+dependencies = [
+    # Agent framework
+    "langgraph>=0.2.0",
+    "langchain>=0.2.0",
+    "langchain-openai>=0.1.0",
+    "langchain-community>=0.2.0",
+    # LLM
+    "openai>=1.0.0",
+    # Data handling
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    # Browser automation
+    "playwright>=1.44.0",
+    # Environment
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+full = [
+    "browser-use>=0.1.0",
+    "resend>=0.7.0",
+    "sendgrid>=6.0.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[tool.uv]
+python-preference = "managed"
