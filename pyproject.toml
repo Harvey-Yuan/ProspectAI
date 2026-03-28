@@ -25,11 +25,18 @@ dependencies = [
     "openpyxl>=3.1.0",
     # Browser automation
     "playwright>=1.44.0",
+    # MCP client (Playwright MCP connection)
+    "mcp>=1.0.0",
     # Environment
     "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-timeout>=2.3.0",
+]
 full = [
     "browser-use>=0.1.0",
     "resend>=0.7.0",
