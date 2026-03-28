@@ -114,6 +114,11 @@ User Input
    - `phone`
    - `contact_form_url`
    - `company_description` (used for personalization)
+   company_name is required
+   contact_person_name is required
+   email,phone,contact_form_url must have at least one
+   company_description is optional
+
 
 **Step B — Heuristic Discovery (Optional / v1.1):**
 - Identify similar companies based on industry/product overlap
@@ -227,25 +232,3 @@ For each lead:
 - Automated follow-up sequences
 
 ---
-
-## 8. Risks & Mitigations
-
-| Risk | Mitigation |
-|---|---|
-| Browser agent fails to find email | Fall back to contact form URL; flag in UI |
-| Email marked as spam | Use reputable ESP; personalize subject line; rate-limit sends |
-| Trade data quality is low | Allow manual CSV upload as fallback input |
-| Web scraping blocked | Rotate user-agents; add retry logic; respect robots.txt |
-
----
-
-## 9. MVP Milestone Plan
-
-| Milestone | Deliverable | Timeline |
-|---|---|---|
-| M1 | Master Agent + Data Agent (static CSV input) | Week 1–2 |
-| M2 | Browser Agent — contact enrichment for 20 leads | Week 3–4 |
-| M3 | CRM Agent — email send + form fill | Week 5–6 |
-| M4 | UI (onboarding + review + log) | Week 7–8 |
-| M5 | End-to-end integration test + bug fixes | Week 9 |
-| **MVP Launch** | **Internal beta with real campaign** | **Week 10** |
