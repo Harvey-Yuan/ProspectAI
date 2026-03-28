@@ -46,6 +46,9 @@ class SalesWorkflowState(TypedDict):
     # ── Runtime identity (used for SSE routing) ──────────────────
     thread_id: Optional[str]
 
+    # ── Google OAuth token (used by CRM Agent for Gmail sending) ─
+    gmail_token: Optional[Dict[str, Any]]
+
     # ── Inputs ──────────────────────────────────────────────────
     company_profile: Optional[CompanyProfile]
     search_params: Optional[Dict[str, Any]]

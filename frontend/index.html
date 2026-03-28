@@ -6,254 +6,317 @@
   <title>AI Sales Agent</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { background: #0a0f1e; font-family: 'Inter', system-ui, sans-serif; }
+    body { background: #080d1a; font-family: 'Inter', system-ui, sans-serif; }
 
-    /* Per-agent glow colours (CSS custom property set on each card) */
-    @keyframes pulse-glow {
-      0%, 100% { box-shadow: 0 0 4px 1px rgba(var(--glow), 0.25); }
-      50%       { box-shadow: 0 0 22px 6px rgba(var(--glow), 0.55); }
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 300px;
+      min-width: 300px;
+      height: 100vh;
+      position: sticky;
+      top: 0;
+      overflow-y: auto;
     }
-    .card-master  { --glow: 139, 92, 246;  --accent: #8b5cf6; --dim: #4c1d95; }
-    .card-data    { --glow: 59, 130, 246;  --accent: #3b82f6; --dim: #1e3a5f; }
-    .card-browser { --glow: 16, 185, 129;  --accent: #10b981; --dim: #064e3b; }
-    .card-crm     { --glow: 245, 158, 11;  --accent: #f59e0b; --dim: #78350f; }
+
+    /* ── Agent glow colours ── */
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 4px 1px rgba(var(--glow), 0.2); }
+      50%       { box-shadow: 0 0 24px 6px rgba(var(--glow), 0.5); }
+    }
+    .card-master  { --glow: 139, 92, 246;  --accent: #8b5cf6; --border-dim: #2e1065; }
+    .card-data    { --glow: 59, 130, 246;  --accent: #3b82f6; --border-dim: #1e3a5f; }
+    .card-browser { --glow: 16, 185, 129;  --accent: #10b981; --border-dim: #064e3b; }
+    .card-crm     { --glow: 245, 158, 11;  --accent: #f59e0b; --border-dim: #78350f; }
 
     .agent-card {
-      transition: border-color 0.3s, box-shadow 0.3s;
-      border-width: 2px;
-      border-color: var(--dim);
+      transition: border-color 0.35s, box-shadow 0.35s;
+      border: 2px solid var(--border-dim);
     }
     .agent-card.is-running {
-      border-color: var(--accent);
+      border-color: var(--accent) !important;
       animation: pulse-glow 1.6s ease-in-out infinite;
     }
-    .agent-card.is-done   { border-color: #22c55e; }
-    .agent-card.is-error  { border-color: #ef4444; }
+    .agent-card.is-done  { border-color: #16a34a !important; }
+    .agent-card.is-error { border-color: #dc2626 !important; }
 
     /* Status dot */
-    .status-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: #334155; flex-shrink: 0;
+    .sdot {
+      width: 9px; height: 9px; border-radius: 50%;
+      background: #1e293b; flex-shrink: 0;
       transition: background 0.3s;
     }
-    .status-dot.running { background: var(--accent); animation: pulse-glow 1.2s ease-in-out infinite; }
-    .status-dot.done    { background: #22c55e; }
-    .status-dot.error   { background: #ef4444; }
+    .sdot.running { background: var(--accent); animation: pulse-glow 1.1s ease-in-out infinite; }
+    .sdot.done    { background: #22c55e; }
+    .sdot.error   { background: #ef4444; }
 
-    /* Log panel */
-    #sse-log { max-height: 380px; overflow-y: auto; scroll-behavior: smooth; }
+    /* Log */
+    #sse-log { max-height: 340px; overflow-y: auto; scroll-behavior: smooth; }
     .log-line {
-      border-left: 3px solid; padding: 3px 12px;
-      font-size: 0.8rem; line-height: 1.5;
-      word-break: break-word;
+      border-left: 3px solid; padding: 2px 10px;
+      font-size: 0.75rem; line-height: 1.6; word-break: break-word;
     }
     .log-masterAgent  { border-color: #8b5cf6; color: #c4b5fd; }
     .log-dataAgent    { border-color: #3b82f6; color: #93c5fd; }
     .log-browserAgent { border-color: #10b981; color: #6ee7b7; }
     .log-crmAgent     { border-color: #f59e0b; color: #fcd34d; }
-    .log-system       { border-color: #475569; color: #94a3b8; }
+    .log-system       { border-color: #334155; color: #64748b; }
 
     /* Spinner */
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner {
-      display: inline-block; width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,0.2);
-      border-top-color: white; border-radius: 50%;
+      display: inline-block; width: 13px; height: 13px;
+      border: 2px solid rgba(255,255,255,0.15);
+      border-top-color: #94a3b8; border-radius: 50%;
       animation: spin 0.75s linear infinite;
     }
 
-    /* Input focus ring */
-    input:focus { outline: none; border-color: #8b5cf6 !important; }
+    /* Input */
+    input, textarea {
+      background: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      color: white;
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      transition: border-color 0.2s;
+    }
+    input:focus, textarea:focus { outline: none; border-color: #8b5cf6; }
+    input::placeholder { color: #334155; }
+    label { display: block; font-size: 0.7rem; color: #64748b; margin-bottom: 5px; }
 
     /* Scrollbar */
-    ::-webkit-scrollbar       { width: 6px; }
+    ::-webkit-scrollbar       { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
   </style>
 </head>
-<body class="min-h-screen text-white">
+<body class="flex min-h-screen text-white">
 
-  <!-- ── Header ──────────────────────────────────────────────────────── -->
-  <header class="border-b border-slate-800 px-6 py-4">
-    <div class="max-w-5xl mx-auto flex items-center gap-3">
-      <span class="text-3xl">🤖</span>
+  <!-- ══════════════════════════════════════════════════════════
+       LEFT SIDEBAR — Company Profile
+  ══════════════════════════════════════════════════════════ -->
+  <aside id="sidebar" class="bg-slate-950 border-r border-slate-800 flex flex-col">
+
+    <!-- Logo -->
+    <div class="px-5 py-5 border-b border-slate-800 flex items-center gap-2.5">
+      <span class="text-2xl">🤖</span>
       <div>
-        <h1 class="text-lg font-bold tracking-tight">AI Sales Agent</h1>
-        <p class="text-slate-500 text-xs">Multi-Agent Sales Outreach Automation</p>
+        <p class="text-sm font-bold text-white tracking-tight">AI Sales Agent</p>
+        <p class="text-xs text-slate-600">Multi-Agent Outreach</p>
       </div>
     </div>
-  </header>
 
-  <main class="max-w-5xl mx-auto px-6 py-8 space-y-8">
+    <!-- ── Google Auth ── -->
+    <div id="auth-section" class="px-5 py-4 border-b border-slate-800">
 
-    <!-- ── Setup form ────────────────────────────────────────────────── -->
-    <section id="setup-section">
-      <div class="bg-slate-900 rounded-2xl p-8 border border-slate-800">
-        <h2 class="text-base font-semibold text-slate-100 mb-6">Company Profile</h2>
-        <form id="profile-form" class="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-          <div>
-            <label class="block text-xs text-slate-400 mb-1.5">Company Name</label>
-            <input name="company_name" type="text" required
-              placeholder="Acme Wire & Cable Co."
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5
-                     text-sm text-white placeholder-slate-600" />
-          </div>
-
-          <div>
-            <label class="block text-xs text-slate-400 mb-1.5">AI Persona Name</label>
-            <input name="ai_persona_name" type="text" required
-              placeholder="Alex from Acme"
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5
-                     text-sm text-white placeholder-slate-600" />
-          </div>
-
-          <div>
-            <label class="block text-xs text-slate-400 mb-1.5">Products / Services</label>
-            <input name="products" type="text" required
-              placeholder="Electrical conductors, copper cables"
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5
-                     text-sm text-white placeholder-slate-600" />
-          </div>
-
-          <div>
-            <label class="block text-xs text-slate-400 mb-1.5">Target Customer Segment</label>
-            <input name="target_segment" type="text" required
-              placeholder="Industrial manufacturers, mining operators"
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5
-                     text-sm text-white placeholder-slate-600" />
-          </div>
-
-          <div>
-            <label class="block text-xs text-slate-400 mb-1.5">Sender Email</label>
-            <input name="sender_email" type="email" required
-              placeholder="alex@acme.example.com"
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5
-                     text-sm text-white placeholder-slate-600" />
-          </div>
-
-          <div>
-            <label class="block text-xs text-slate-400 mb-1.5">Value Proposition / Description</label>
-            <input name="description" type="text" required
-              placeholder="High-quality cables, IEC/UL certified, 20+ years of experience"
-              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5
-                     text-sm text-white placeholder-slate-600" />
-          </div>
-
-          <div class="md:col-span-2 flex justify-end pt-2">
-            <button type="submit" id="start-btn"
-              class="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-8 py-3
-                     rounded-xl transition-colors flex items-center gap-2 text-sm">
-              <span>🚀</span><span>Launch Campaign</span>
-            </button>
-          </div>
-        </form>
+      <!-- Not signed in -->
+      <div id="login-box">
+        <p class="text-xs text-slate-500 mb-3">Sign in to send emails via Gmail</p>
+        <a href="/auth/google"
+           class="flex items-center gap-2.5 bg-white hover:bg-slate-100 text-slate-800
+                  font-medium px-3 py-2 rounded-lg text-xs transition-colors w-full">
+          <!-- Google "G" logo -->
+          <svg width="16" height="16" viewBox="0 0 48 48">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          </svg>
+          Sign in with Google
+        </a>
       </div>
-    </section>
 
-    <!-- ── Campaign dashboard ─────────────────────────────────────────── -->
-    <section id="dashboard-section" class="hidden space-y-6">
+      <!-- Signed in -->
+      <div id="user-box" class="hidden">
+        <div class="flex items-center gap-2.5">
+          <img id="user-avatar" src="" alt=""
+               class="w-8 h-8 rounded-full bg-slate-700 object-cover" />
+          <div class="flex-1 min-w-0">
+            <p id="user-name"  class="text-xs font-semibold text-white truncate"></p>
+            <p id="user-email" class="text-xs text-slate-500 truncate"></p>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-2.5">
+          <span class="flex items-center gap-1.5 text-xs text-green-400">
+            <span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block"></span>
+            Gmail connected
+          </span>
+          <button onclick="signOut()"
+            class="text-xs text-slate-600 hover:text-slate-400 transition-colors">
+            Sign out
+          </button>
+        </div>
+      </div>
+    </div>
 
-      <!-- Agent cards -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <!-- Form -->
+    <form id="profile-form" class="flex flex-col gap-4 px-5 py-5 flex-1">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Company Profile</p>
+
+      <div>
+        <label>Company Name</label>
+        <input name="company_name" type="text" required placeholder="Acme Wire & Cable Co." />
+      </div>
+      <div>
+        <label>AI Persona Name</label>
+        <input name="ai_persona_name" type="text" required placeholder="Alex from Acme" />
+      </div>
+      <div>
+        <label>Products / Services</label>
+        <input name="products" type="text" required placeholder="Electrical conductors, copper cables" />
+      </div>
+      <div>
+        <label>Target Customer Segment</label>
+        <input name="target_segment" type="text" required placeholder="Industrial manufacturers" />
+      </div>
+      <div>
+        <label>Sender Email</label>
+        <input name="sender_email" type="email" required placeholder="alex@acme.example.com" />
+      </div>
+      <div>
+        <label>Value Proposition</label>
+        <input name="description" type="text" required placeholder="High-quality cables, IEC/UL certified" />
+      </div>
+
+      <!-- Launch button -->
+      <div class="mt-auto pt-4 border-t border-slate-800">
+        <button type="submit" id="launch-btn"
+          class="w-full bg-violet-600 hover:bg-violet-500 text-white font-semibold
+                 py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 text-sm">
+          <span id="launch-icon">🚀</span>
+          <span id="launch-label">Launch Campaign</span>
+        </button>
+        <!-- Status badge shown while running -->
+        <div id="running-badge" class="hidden mt-3 flex items-center justify-center gap-2
+             text-xs text-slate-400 bg-slate-900 rounded-lg py-2">
+          <span class="spinner"></span>
+          <span id="running-step">Initialising...</span>
+        </div>
+      </div>
+    </form>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════════
+       RIGHT PANEL — Agents + Log + Review
+  ══════════════════════════════════════════════════════════ -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-y-auto">
+
+    <!-- Top bar -->
+    <header class="sticky top-0 z-10 bg-slate-950/80 backdrop-blur border-b border-slate-800
+                   px-8 py-3 flex items-center justify-between">
+      <p class="text-sm font-semibold text-slate-300">Campaign Dashboard</p>
+      <div id="header-status" class="text-xs text-slate-600">No active campaign</div>
+    </header>
+
+    <main class="flex-1 px-8 py-7 space-y-6">
+
+      <!-- ── Four Agent Cards ─────────────────────────────────── -->
+      <div class="grid grid-cols-2 xl:grid-cols-4 gap-4">
 
         <!-- Master Agent -->
         <div id="card-masterAgent" class="agent-card card-master bg-slate-900 rounded-2xl p-5">
           <div class="flex items-start justify-between mb-4">
-            <span class="text-2xl">🧠</span>
-            <div id="dot-masterAgent" class="status-dot"></div>
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xl
+                        bg-violet-950">🧠</div>
+            <div id="dot-masterAgent" class="sdot"></div>
           </div>
-          <p class="font-semibold text-sm text-slate-100">Master Agent</p>
-          <p class="text-xs mt-0.5" style="color:var(--accent)">Orchestrator</p>
-          <p id="msg-masterAgent" class="text-xs text-slate-500 mt-3 leading-relaxed min-h-[36px]">Idle</p>
+          <p class="font-semibold text-sm text-white">Master Agent</p>
+          <p class="text-xs mt-0.5 text-violet-400">Orchestrator</p>
+          <p id="msg-masterAgent"
+             class="text-xs text-slate-600 mt-3 leading-relaxed min-h-[40px]">Idle</p>
         </div>
 
         <!-- Data Agent -->
         <div id="card-dataAgent" class="agent-card card-data bg-slate-900 rounded-2xl p-5">
           <div class="flex items-start justify-between mb-4">
-            <span class="text-2xl">📊</span>
-            <div id="dot-dataAgent" class="status-dot"></div>
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xl
+                        bg-blue-950">📊</div>
+            <div id="dot-dataAgent" class="sdot"></div>
           </div>
-          <p class="font-semibold text-sm text-slate-100">Data Agent</p>
-          <p class="text-xs mt-0.5" style="color:var(--accent)">Lead Source</p>
-          <p id="msg-dataAgent" class="text-xs text-slate-500 mt-3 leading-relaxed min-h-[36px]">Idle</p>
+          <p class="font-semibold text-sm text-white">Data Agent</p>
+          <p class="text-xs mt-0.5 text-blue-400">Lead Source</p>
+          <p id="msg-dataAgent"
+             class="text-xs text-slate-600 mt-3 leading-relaxed min-h-[40px]">Idle</p>
         </div>
 
         <!-- Browser Agent -->
         <div id="card-browserAgent" class="agent-card card-browser bg-slate-900 rounded-2xl p-5">
           <div class="flex items-start justify-between mb-4">
-            <span class="text-2xl">🌐</span>
-            <div id="dot-browserAgent" class="status-dot"></div>
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xl
+                        bg-emerald-950">🌐</div>
+            <div id="dot-browserAgent" class="sdot"></div>
           </div>
-          <p class="font-semibold text-sm text-slate-100">Browser Agent</p>
-          <p class="text-xs mt-0.5" style="color:var(--accent)">Contact Enrichment</p>
-          <p id="msg-browserAgent" class="text-xs text-slate-500 mt-3 leading-relaxed min-h-[36px]">Idle</p>
+          <p class="font-semibold text-sm text-white">Browser Agent</p>
+          <p class="text-xs mt-0.5 text-emerald-400">Contact Enrichment</p>
+          <p id="msg-browserAgent"
+             class="text-xs text-slate-600 mt-3 leading-relaxed min-h-[40px]">Idle</p>
         </div>
 
         <!-- CRM Agent -->
         <div id="card-crmAgent" class="agent-card card-crm bg-slate-900 rounded-2xl p-5">
           <div class="flex items-start justify-between mb-4">
-            <span class="text-2xl">📧</span>
-            <div id="dot-crmAgent" class="status-dot"></div>
+            <div class="w-9 h-9 rounded-xl flex items-center justify-center text-xl
+                        bg-amber-950">📧</div>
+            <div id="dot-crmAgent" class="sdot"></div>
           </div>
-          <p class="font-semibold text-sm text-slate-100">CRM Agent</p>
-          <p class="text-xs mt-0.5" style="color:var(--accent)">Outreach Execution</p>
-          <p id="msg-crmAgent" class="text-xs text-slate-500 mt-3 leading-relaxed min-h-[36px]">Idle</p>
+          <p class="font-semibold text-sm text-white">CRM Agent</p>
+          <p class="text-xs mt-0.5 text-amber-400">Outreach Execution</p>
+          <p id="msg-crmAgent"
+             class="text-xs text-slate-600 mt-3 leading-relaxed min-h-[40px]">Idle</p>
         </div>
       </div>
 
-      <!-- Live log -->
+      <!-- ── Live Log ──────────────────────────────────────────── -->
       <div class="bg-slate-900 rounded-2xl border border-slate-800 overflow-hidden">
         <div class="flex items-center justify-between px-5 py-3 border-b border-slate-800">
-          <h3 class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+          <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider
+                     flex items-center gap-2">
             <span id="log-spinner" class="spinner hidden"></span>
-            <span>Live Log</span>
+            Live Log
           </h3>
           <button onclick="clearLog()"
-            class="text-xs text-slate-600 hover:text-slate-400 transition-colors">
-            Clear
-          </button>
+            class="text-xs text-slate-700 hover:text-slate-500 transition-colors">Clear</button>
         </div>
-        <div id="sse-log" class="p-4 bg-black/20 min-h-[200px] font-mono">
+        <div id="sse-log" class="p-4 bg-black/30 min-h-[180px] font-mono">
           <p class="text-slate-700 text-xs">Log will appear here once the campaign starts...</p>
         </div>
       </div>
 
-      <!-- Human review panel (hidden until needed) -->
-      <div id="review-panel" class="hidden bg-slate-900 rounded-2xl border border-yellow-500/40 overflow-hidden">
-        <div class="px-6 py-4 bg-yellow-500/10 border-b border-yellow-500/20 flex flex-wrap
-                    items-center justify-between gap-4">
+      <!-- ── Human Review Panel ────────────────────────────────── -->
+      <div id="review-panel"
+           class="hidden bg-slate-900 rounded-2xl border border-yellow-500/30 overflow-hidden">
+        <div class="px-6 py-4 bg-yellow-500/10 border-b border-yellow-500/20
+                    flex flex-wrap items-center justify-between gap-4">
           <div class="flex items-center gap-3">
-            <span class="text-2xl">👁️</span>
+            <span class="text-xl">👁️</span>
             <div>
-              <h3 class="font-semibold text-yellow-300 text-sm">Human Review Required</h3>
-              <p class="text-yellow-600 text-xs mt-0.5">
-                Review the enriched contact list below, then approve or cancel.
+              <p class="font-semibold text-yellow-300 text-sm">Human Review Required</p>
+              <p class="text-yellow-600/80 text-xs mt-0.5">
+                Inspect the enriched contacts below, then approve or cancel.
               </p>
             </div>
           </div>
           <div class="flex gap-3">
             <button onclick="submitApproval(false)"
-              class="px-4 py-2 rounded-lg text-sm bg-slate-800 hover:bg-slate-700
-                     text-slate-300 transition-colors">
-              Cancel
-            </button>
+              class="px-4 py-2 rounded-lg text-xs bg-slate-800 hover:bg-slate-700
+                     text-slate-300 transition-colors">Cancel</button>
             <button onclick="submitApproval(true)"
-              class="px-6 py-2 rounded-lg text-sm font-semibold
+              class="px-5 py-2 rounded-lg text-xs font-semibold
                      bg-yellow-500 hover:bg-yellow-400 text-slate-900 transition-colors">
               ✓ Approve &amp; Send
             </button>
           </div>
         </div>
-        <div class="overflow-x-auto max-h-72">
-          <table class="w-full text-sm">
+        <div class="overflow-x-auto max-h-64">
+          <table class="w-full text-xs">
             <thead class="bg-slate-800/60 sticky top-0">
               <tr>
-                <th class="text-left px-4 py-2 text-slate-400 text-xs font-medium">Company</th>
-                <th class="text-left px-4 py-2 text-slate-400 text-xs font-medium">Contact</th>
-                <th class="text-left px-4 py-2 text-slate-400 text-xs font-medium">Email</th>
-                <th class="text-left px-4 py-2 text-slate-400 text-xs font-medium">Phone</th>
-                <th class="text-left px-4 py-2 text-slate-400 text-xs font-medium">Source</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">Company</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">Contact</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">Email</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">Phone</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">Source</th>
               </tr>
             </thead>
             <tbody id="review-tbody"></tbody>
@@ -261,31 +324,33 @@
         </div>
       </div>
 
-      <!-- Completion banner (hidden until done) -->
-      <div id="done-banner" class="hidden bg-green-950/40 border border-green-600/40
-                                   rounded-2xl p-8 text-center">
+      <!-- ── Completion Banner ──────────────────────────────────── -->
+      <div id="done-banner"
+           class="hidden bg-green-950/30 border border-green-600/30 rounded-2xl p-8 text-center">
         <div class="text-5xl mb-3">🎉</div>
-        <h3 class="text-green-400 font-bold text-xl">Campaign Complete!</h3>
-        <p id="done-msg" class="text-green-500/80 text-sm mt-2"></p>
-        <button onclick="resetApp()"
+        <h3 class="text-green-400 font-bold text-lg">Campaign Complete!</h3>
+        <p id="done-msg" class="text-green-600 text-sm mt-2"></p>
+        <button onclick="resetCampaign()"
           class="mt-5 bg-green-600 hover:bg-green-500 text-white font-semibold
                  px-7 py-2.5 rounded-xl text-sm transition-colors">
           Start New Campaign
         </button>
       </div>
 
-    </section>
-  </main>
+    </main>
+  </div>
 
-  <!-- ── JavaScript ──────────────────────────────────────────────────────── -->
+  <!-- ══════════════════════════════════════════════════════════
+       JavaScript
+  ══════════════════════════════════════════════════════════ -->
   <script>
-    let threadId    = null;
-    let evtSource   = null;
+    let threadId     = null;
+    let evtSource    = null;
     let pendingLeads = [];
 
     const AGENTS = ['masterAgent', 'dataAgent', 'browserAgent', 'crmAgent'];
 
-    // ── Form submission ─────────────────────────────────────────────────────
+    // ── Form submit ────────────────────────────────────────────────────────
     document.getElementById('profile-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = e.target;
@@ -305,28 +370,23 @@
         });
         const data = await res.json();
         threadId = data.thread_id;
-        showDashboard();
+        onCampaignStart();
         connectSSE(threadId);
       } catch (err) {
         alert('Failed to start campaign: ' + err.message);
       }
     });
 
-    // ── SSE connection ──────────────────────────────────────────────────────
+    // ── SSE ────────────────────────────────────────────────────────────────
     function connectSSE(id) {
       if (evtSource) evtSource.close();
       evtSource = new EventSource(`/api/campaign/${id}/stream`);
-
       evtSource.onmessage = (e) => {
-        try { handleEvent(JSON.parse(e.data)); }
-        catch (_) {}
+        try { handleEvent(JSON.parse(e.data)); } catch (_) {}
       };
-      evtSource.onerror = () => {
-        appendLog('system', 'Connection error — retrying...');
-      };
+      evtSource.onerror = () => appendLog('system', 'Connection error — retrying...');
     }
 
-    // ── Event handler ───────────────────────────────────────────────────────
     function handleEvent(ev) {
       const { type, agent, status, message } = ev;
 
@@ -335,53 +395,51 @@
         setSpinner(false);
         return;
       }
-
       if (type === 'error') {
         appendLog(agent || 'system', message);
         if (agent) setCard(agent, 'error', message);
         setSpinner(false);
+        setHeaderStatus('Error — see log');
         return;
       }
-
       if (type === 'workflow_done') {
         appendLog(agent || 'masterAgent', message);
+        AGENTS.forEach(id => setCard(id, 'done', null));
         setCard('masterAgent', 'done', message);
         setSpinner(false);
+        setHeaderStatus('Campaign complete ✓');
         showBanner(message);
         return;
       }
-
       if (type === 'human_review_needed') {
         pendingLeads = ev.enriched_leads || [];
         appendLog('masterAgent', message);
         setCard('masterAgent', 'done', 'Waiting for human review...');
         setSpinner(false);
+        setHeaderStatus('⏸ Awaiting human review');
         showReview(pendingLeads);
         return;
       }
 
-      // Standard agent_status / master_validate events
+      // agent_status / master_validate
       if (agent) {
         appendLog(agent, message);
-        if (status === 'running' || status === 'validating') {
-          setCard(agent, 'running', message);
-        } else if (status === 'done') {
-          setCard(agent, 'done', message);
-        } else if (status === 'error') {
-          setCard(agent, 'error', message);
-        }
+        setHeaderStatus(`${agentLabel(agent)}: ${message.slice(0, 60)}${message.length > 60 ? '…' : ''}`);
+        if (status === 'running' || status === 'validating') setCard(agent, 'running', message);
+        else if (status === 'done')  setCard(agent, 'done', message);
+        else if (status === 'error') setCard(agent, 'error', message);
       }
     }
 
-    // ── Card state ──────────────────────────────────────────────────────────
+    // ── Agent card state ───────────────────────────────────────────────────
     function setCard(agentId, state, message) {
       const card = document.getElementById(`card-${agentId}`);
       const dot  = document.getElementById(`dot-${agentId}`);
       const msg  = document.getElementById(`msg-${agentId}`);
       if (!card) return;
 
-      // Remove running state from all cards before setting a new active one
       if (state === 'running') {
+        // Only one card pulses at a time
         AGENTS.forEach(id => {
           document.getElementById(`card-${id}`)?.classList.remove('is-running');
           document.getElementById(`dot-${id}`)?.classList.remove('running');
@@ -391,46 +449,31 @@
       card.classList.remove('is-running', 'is-done', 'is-error');
       dot.classList.remove('running', 'done', 'error');
 
-      if (state === 'running') {
-        card.classList.add('is-running');
-        dot.classList.add('running');
-      } else if (state === 'done') {
-        card.classList.add('is-done');
-        dot.classList.add('done');
-      } else if (state === 'error') {
-        card.classList.add('is-error');
-        dot.classList.add('error');
-      }
+      if (state === 'running') { card.classList.add('is-running'); dot.classList.add('running'); }
+      else if (state === 'done')  { card.classList.add('is-done');    dot.classList.add('done');    }
+      else if (state === 'error') { card.classList.add('is-error');   dot.classList.add('error');   }
 
-      if (message) msg.textContent = message;
+      if (message !== null && message !== undefined)
+        msg.textContent = message;
     }
 
-    // ── Log ─────────────────────────────────────────────────────────────────
+    // ── Log ────────────────────────────────────────────────────────────────
+    const EMOJIS = { masterAgent:'🧠', dataAgent:'📊', browserAgent:'🌐', crmAgent:'📧', system:'⚙️' };
+    const LABELS = { masterAgent:'Master Agent', dataAgent:'Data Agent',
+                     browserAgent:'Browser Agent', crmAgent:'CRM Agent', system:'System' };
+    function agentLabel(id) { return LABELS[id] || id; }
+
     function appendLog(agentId, message) {
       const log = document.getElementById('sse-log');
-
-      // Clear placeholder text on first real message
       if (log.querySelector('p.text-slate-700')) log.innerHTML = '';
-
-      const emojis = {
-        masterAgent: '🧠', dataAgent: '📊',
-        browserAgent: '🌐', crmAgent: '📧', system: '⚙️',
-      };
-      const names = {
-        masterAgent: 'Master Agent', dataAgent: 'Data Agent',
-        browserAgent: 'Browser Agent', crmAgent: 'CRM Agent', system: 'System',
-      };
-      const time = new Date().toLocaleTimeString('en-US', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-      });
-
+      const time = new Date().toLocaleTimeString('en-US',
+        { hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false });
       const line = document.createElement('div');
       line.className = `log-line log-${agentId || 'system'}`;
       line.innerHTML =
-        `<span style="opacity:0.4">[${time}]</span> ` +
-        `<span style="font-weight:600">${emojis[agentId] || '⚙️'} ${names[agentId] || agentId}</span>` +
+        `<span style="opacity:0.35">[${time}]</span> ` +
+        `<span style="font-weight:600">${EMOJIS[agentId]||'⚙️'} ${LABELS[agentId]||agentId}</span>` +
         `: ${message}`;
-
       log.appendChild(line);
       log.scrollTop = log.scrollHeight;
     }
@@ -440,98 +483,130 @@
         '<p class="text-slate-700 text-xs">Log cleared.</p>';
     }
 
-    // ── Human review ────────────────────────────────────────────────────────
+    // ── Human review ───────────────────────────────────────────────────────
     function showReview(leads) {
       const panel = document.getElementById('review-panel');
       const tbody = document.getElementById('review-tbody');
       panel.classList.remove('hidden');
-
-      if (!leads.length) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="5" class="px-4 py-8 text-center text-slate-600 text-xs">
-              No enriched contacts (Browser Agent not yet implemented).
-              You can still approve to proceed with the CRM Agent.
-            </td>
-          </tr>`;
-        return;
-      }
-
-      tbody.innerHTML = leads.map(l => `
-        <tr class="border-t border-slate-800/60 hover:bg-slate-800/30">
-          <td class="px-4 py-2.5 text-slate-200 text-xs">${l.company_name || '—'}</td>
-          <td class="px-4 py-2.5 text-slate-300 text-xs">${l.contact_name || '—'}</td>
-          <td class="px-4 py-2.5 text-slate-300 text-xs">${l.email || '—'}</td>
-          <td class="px-4 py-2.5 text-slate-300 text-xs">${l.phone || '—'}</td>
-          <td class="px-4 py-2.5 text-slate-600 text-xs truncate max-w-[140px]">
-            ${l.source_url ? `<a href="${l.source_url}" target="_blank"
-              class="underline hover:text-slate-400">${l.source_url}</a>` : '—'}
-          </td>
-        </tr>`).join('');
+      tbody.innerHTML = leads.length === 0
+        ? `<tr><td colspan="5" class="px-4 py-6 text-center text-slate-600">
+             No enriched contacts yet (Browser Agent placeholder).
+             You can still approve to continue.
+           </td></tr>`
+        : leads.map(l => `
+            <tr class="border-t border-slate-800/50 hover:bg-slate-800/30">
+              <td class="px-4 py-2 text-slate-200">${l.company_name||'—'}</td>
+              <td class="px-4 py-2 text-slate-300">${l.contact_name||'—'}</td>
+              <td class="px-4 py-2 text-slate-300">${l.email||'—'}</td>
+              <td class="px-4 py-2 text-slate-300">${l.phone||'—'}</td>
+              <td class="px-4 py-2 text-slate-600 truncate max-w-[120px]">${l.source_url||'—'}</td>
+            </tr>`).join('');
     }
 
     async function submitApproval(approved) {
       if (!threadId) return;
       document.getElementById('review-panel').classList.add('hidden');
-
       if (!approved) {
         appendLog('system', 'Campaign cancelled by user.');
-        try {
-          await fetch(`/api/campaign/${threadId}/approve`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ approved: false }),
-          });
-        } catch (_) {}
+        await fetch(`/api/campaign/${threadId}/approve`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ approved: false }),
+        }).catch(() => {});
+        setHeaderStatus('Cancelled');
         return;
       }
-
       appendLog('masterAgent', 'Human review approved — resuming workflow...');
       setCard('masterAgent', 'running', 'Resuming after human approval...');
       setSpinner(true);
-
-      try {
-        await fetch(`/api/campaign/${threadId}/approve`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ approved: true, edited_leads: pendingLeads }),
-        });
-      } catch (err) {
-        appendLog('system', 'Failed to submit approval: ' + err.message);
-      }
+      setHeaderStatus('Resuming campaign...');
+      await fetch(`/api/campaign/${threadId}/approve`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ approved: true, edited_leads: pendingLeads }),
+      }).catch(err => appendLog('system', 'Approval request failed: ' + err.message));
     }
 
-    // ── UI helpers ──────────────────────────────────────────────────────────
-    function showDashboard() {
-      document.getElementById('setup-section').classList.add('hidden');
-      document.getElementById('dashboard-section').classList.remove('hidden');
-      document.getElementById('done-banner').classList.add('hidden');
-      document.getElementById('review-panel').classList.add('hidden');
-      document.getElementById('sse-log').innerHTML =
-        '<p class="text-slate-700 text-xs">Log will appear here once the campaign starts...</p>';
+    // ── UI helpers ─────────────────────────────────────────────────────────
+    function onCampaignStart() {
+      // Reset all cards
       AGENTS.forEach(id => {
         setCard(id, 'idle', 'Idle');
         document.getElementById(`msg-${id}`).textContent = 'Idle';
       });
+      document.getElementById('done-banner').classList.add('hidden');
+      document.getElementById('review-panel').classList.add('hidden');
+      document.getElementById('sse-log').innerHTML =
+        '<p class="text-slate-700 text-xs">Campaign started...</p>';
       setSpinner(true);
+      setHeaderStatus('Campaign running...');
+      // Update launch button
+      document.getElementById('launch-icon').textContent  = '↻';
+      document.getElementById('launch-label').textContent = 'Restart Campaign';
+      document.getElementById('running-badge').classList.remove('hidden');
     }
 
     function showBanner(message) {
-      const banner = document.getElementById('done-banner');
+      const b = document.getElementById('done-banner');
       document.getElementById('done-msg').textContent = message;
-      banner.classList.remove('hidden');
+      b.classList.remove('hidden');
+      document.getElementById('running-badge').classList.add('hidden');
     }
 
     function setSpinner(on) {
       document.getElementById('log-spinner').classList.toggle('hidden', !on);
+      const step = document.getElementById('running-step');
+      // no-op, step text is updated via setHeaderStatus
     }
 
-    function resetApp() {
+    function setHeaderStatus(text) {
+      document.getElementById('header-status').textContent = text;
+      document.getElementById('running-step').textContent  = text;
+    }
+
+    // ── Google Auth ───────────────────────────────────────────────────────────
+    async function checkAuth() {
+      try {
+        const res  = await fetch('/auth/me');
+        const data = await res.json();
+        if (data.authenticated) {
+          document.getElementById('login-box').classList.add('hidden');
+          document.getElementById('user-box').classList.remove('hidden');
+          document.getElementById('user-name').textContent  = data.name  || '';
+          document.getElementById('user-email').textContent = data.email || '';
+          const avatar = document.getElementById('user-avatar');
+          if (data.picture) avatar.src = data.picture;
+          // Pre-fill sender email with the signed-in Gmail address
+          const emailField = document.querySelector('[name="sender_email"]');
+          if (emailField && !emailField.value) emailField.value = data.email || '';
+        } else {
+          document.getElementById('login-box').classList.remove('hidden');
+          document.getElementById('user-box').classList.add('hidden');
+        }
+      } catch (_) {}
+    }
+
+    async function signOut() {
+      await fetch('/auth/logout', { method: 'POST' }).catch(() => {});
+      document.getElementById('login-box').classList.remove('hidden');
+      document.getElementById('user-box').classList.add('hidden');
+      document.querySelector('[name="sender_email"]').value = '';
+    }
+
+    // Check login state on page load
+    checkAuth();
+
+    function resetCampaign() {
       evtSource?.close();
       threadId = null;
       pendingLeads = [];
-      document.getElementById('dashboard-section').classList.add('hidden');
-      document.getElementById('setup-section').classList.remove('hidden');
+      AGENTS.forEach(id => {
+        setCard(id, 'idle', 'Idle');
+        document.getElementById(`msg-${id}`).textContent = 'Idle';
+      });
+      document.getElementById('done-banner').classList.add('hidden');
+      document.getElementById('running-badge').classList.add('hidden');
+      document.getElementById('launch-icon').textContent  = '🚀';
+      document.getElementById('launch-label').textContent = 'Launch Campaign';
+      setHeaderStatus('No active campaign');
     }
   </script>
 </body>

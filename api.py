@@ -5,33 +5,57 @@ Endpoints:
   POST /api/campaign/start          -- Start a new campaign, returns thread_id
   GET  /api/campaign/{id}/stream    -- SSE stream of all agent events
   POST /api/campaign/{id}/approve   -- Submit human approval and resume graph
+
+  GET  /auth/google                 -- Redirect to Google OAuth consent
+  GET  /auth/callback               -- Handle OAuth callback
+  GET  /auth/me                     -- Current user info
+  POST /auth/logout                 -- Clear session
 """
 
 import asyncio
 import json
+import os
 import queue as _queue
 import threading
 import traceback
 import uuid
 from typing import List, Optional
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.requests import Request
 
+load_dotenv()
+
+import auth
 import sse_manager
 from graph import graph
 from state import SalesWorkflowState, CompanyProfile
 
 app = FastAPI(title="AI Sales Agent API")
+
+# Session middleware must be added before CORS and routes
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=os.getenv("SESSION_SECRET", "change-me-in-production"),
+    session_cookie="ai_sales_session",
+    max_age=86400,   # 24 hours
+    https_only=False,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount Google OAuth routes
+app.include_router(auth.router)
 
 
 # ── Request / Response models ────────────────────────────────────────────────
@@ -52,12 +76,14 @@ class ApprovalRequest(BaseModel):
 
 # ── Background graph runner ──────────────────────────────────────────────────
 
-def _run_graph(thread_id: str, profile: CompanyProfileRequest) -> None:
+def _run_graph(thread_id: str, profile: CompanyProfileRequest,
+               gmail_token: Optional[dict]) -> None:
     """Runs the full LangGraph workflow in a background thread."""
     config = {"configurable": {"thread_id": thread_id}}
 
     initial_state: SalesWorkflowState = {
         "thread_id": thread_id,
+        "gmail_token": gmail_token,
         "company_profile": CompanyProfile(
             company_name=profile.company_name,
             products=profile.products,
@@ -88,7 +114,6 @@ def _run_graph(thread_id: str, profile: CompanyProfileRequest) -> None:
         interrupted = bool(snapshot.next)
 
         if not interrupted:
-            # Workflow ended before reaching human_review (likely an error)
             sse_manager.emit(thread_id, {
                 "type": "workflow_done",
                 "agent": "masterAgent",
@@ -96,7 +121,7 @@ def _run_graph(thread_id: str, profile: CompanyProfileRequest) -> None:
             })
             return
 
-        # Notify the frontend that human review is needed
+        # Pause: ask user to review enriched contacts
         enriched = snapshot.values.get("enriched_leads") or []
         sse_manager.emit(thread_id, {
             "type": "human_review_needed",
@@ -105,7 +130,7 @@ def _run_graph(thread_id: str, profile: CompanyProfileRequest) -> None:
             "enriched_leads": enriched,
         })
 
-        # Block this thread until the user approves (up to 10 minutes)
+        # Block until approved (up to 10 minutes)
         approval = sse_manager.wait_for_approval(thread_id, timeout=600)
 
         if not approval or not approval.get("approved"):
@@ -116,7 +141,6 @@ def _run_graph(thread_id: str, profile: CompanyProfileRequest) -> None:
             })
             return
 
-        # Resume the graph with the approved leads
         approved_leads = approval.get("edited_leads") or enriched
         graph.update_state(config, {
             "human_approved": True,
@@ -130,7 +154,7 @@ def _run_graph(thread_id: str, profile: CompanyProfileRequest) -> None:
             "message": f"Review approved ({len(approved_leads)} contacts). Resuming workflow...",
         })
 
-        # Phase 2: run CRM agent to completion
+        # Phase 2: CRM agent to completion
         for _ in graph.stream(None, config):
             pass
 
@@ -154,10 +178,15 @@ def _run_graph(thread_id: str, profile: CompanyProfileRequest) -> None:
 # ── API routes ───────────────────────────────────────────────────────────────
 
 @app.post("/api/campaign/start")
-async def start_campaign(profile: CompanyProfileRequest):
-    thread_id = str(uuid.uuid4())
+async def start_campaign(profile: CompanyProfileRequest, request: Request):
+    thread_id   = str(uuid.uuid4())
+    gmail_token = request.session.get("gmail_token")   # None if not logged in
     sse_manager.setup(thread_id)
-    threading.Thread(target=_run_graph, args=(thread_id, profile), daemon=True).start()
+    threading.Thread(
+        target=_run_graph,
+        args=(thread_id, profile, gmail_token),
+        daemon=True,
+    ).start()
     return {"thread_id": thread_id}
 
 
@@ -171,7 +200,6 @@ async def stream_campaign(thread_id: str):
         loop = asyncio.get_running_loop()
         while True:
             try:
-                # Block at most 1 second so the loop stays responsive
                 event = await loop.run_in_executor(None, q.get, True, 1.0)
                 if event is None:
                     yield f"data: {json.dumps({'type': 'done'})}\n\n"
@@ -198,5 +226,5 @@ async def approve_campaign(thread_id: str, body: ApprovalRequest):
     return {"ok": True}
 
 
-# Static frontend — must be mounted LAST to avoid shadowing API routes
+# Static frontend — must be mounted LAST
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")
