@@ -1,188 +1,146 @@
 """
-AI Sales Multi-Agent System — LangGraph Workflow
+AI Sales Multi-Agent System - LangGraph Workflow
 =================================================
 
-Node map:
-                         ┌─────────────────────────────────┐
-                         │      parse_company_profile       │  ← entry
-                         └──────────────┬──────────────────┘
-                                        │
-                         ┌──────────────▼──────────────────┐
-                         │       build_search_params        │
-                         └──────────────┬──────────────────┘
-                                        │
-                         ┌──────────────▼──────────────────┐
-                         │    data_agent (fetch_leads)      │  ← dummy skill
-                         └──────────────┬──────────────────┘
-                                        │
-                         ┌──────────────▼──────────────────┐
-                         │  browser_agent (enrich_leads)    │
-                         └──────────────┬──────────────────┘
-                                        │
-                         ┌──────────────▼──────────────────┐
-                         │      human_review_checkpoint     │  ← interrupt
-                         └──────────────┬──────────────────┘
-                                   approved?
-                              yes ──┘   └── no (loop back / abort)
-                         ┌──────────────▼──────────────────┐
-                         │    crm_agent (send_outreach)     │
-                         └──────────────┬──────────────────┘
-                                        │
-                         ┌──────────────▼──────────────────┐
-                         │      review_activity_log         │  ← end
-                         └─────────────────────────────────┘
+All sub-agents are only invoked through edges controlled by the Master Agent.
+Master Agent validates each sub-agent's output before dispatching the next one.
+
+Node flow:
+  parse_company_profile     (master)
+        |
+  build_search_params       (master)  <-- dispatches Data Agent
+        |
+  data_agent
+        |
+  master_validate_leads     (master)  <-- validates; dispatches Browser Agent
+        |
+  browser_agent
+        |
+  master_validate_enrichment (master) <-- validates
+        |
+  -- interrupt_before -------------- Human-in-the-Loop checkpoint
+        |
+  human_review              (master passthrough, runs after approval)
+        |
+  crm_agent
+        |
+  review_activity_log       (master)  <-- final report
+        |
+  END
 """
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
 from state import SalesWorkflowState
-from masterAgent.agent import parse_company_profile, build_search_params, review_activity_log
+from masterAgent.agent import (
+    parse_company_profile,
+    build_search_params,
+    master_validate_leads,
+    master_validate_enrichment,
+    human_review_passthrough,
+    review_activity_log,
+)
 from dataAgent.agent import fetch_leads
 from browserAgent.agent import enrich_leads
 from crmAgent.agent import send_outreach
 
 
-# ── Human-in-the-Loop node ──────────────────────────────────────────────────
-
-def human_review_checkpoint(state: SalesWorkflowState) -> SalesWorkflowState:
-    """
-    Interrupt node: execution pauses here so the user can review and edit
-    the enriched CSV before outreach begins.
-
-    In production:
-      - The frontend renders the enriched_leads table for editing.
-      - The user clicks "Approve & Send".
-      - The graph is resumed with human_approved=True and the
-        (possibly edited) approved_leads list.
-
-    For now the node simply copies enriched_leads → approved_leads when
-    human_approved is already True (set externally before resuming).
-    """
-    if not state.get("human_approved"):
-        # Graph will be interrupted here by LangGraph's interrupt mechanism.
-        # The frontend resumes it by calling graph.update_state() with
-        # human_approved=True and optionally a modified approved_leads list.
-        return {
-            **state,
-            "current_step": "awaiting_approval",
-        }
-
-    # User has approved — carry enriched leads forward (they may have been
-    # edited externally before the graph was resumed).
-    approved = state.get("approved_leads") or state.get("enriched_leads") or []
-    return {
-        **state,
-        "approved_leads": approved,
-        "current_step": "approved",
-    }
-
-
-# ── Conditional edge functions ───────────────────────────────────────────────
-
-def route_after_profile(state: SalesWorkflowState) -> str:
-    if state.get("error_message"):
-        return "error_end"
-    return "build_search_params"
-
-
-def route_after_data_agent(state: SalesWorkflowState) -> str:
-    if state.get("error_message"):
-        return "error_end"
-    raw_leads = state.get("raw_leads") or []
-    if not raw_leads:
-        return "error_end"
-    return "browser_agent"
-
-
-def route_after_browser_agent(state: SalesWorkflowState) -> str:
-    if state.get("error_message"):
-        return "error_end"
-    return "human_review"
-
-
-def route_after_human_review(state: SalesWorkflowState) -> str:
-    current = state.get("current_step")
-    if current == "awaiting_approval":
-        # Stay at this node until the graph is resumed externally.
-        return "human_review"
-    if state.get("error_message"):
-        return "error_end"
-    return "crm_agent"
-
-
-def route_after_crm(state: SalesWorkflowState) -> str:
-    if state.get("error_message"):
-        return "error_end"
-    return "review_activity_log"
-
-
 # ── Error terminal node ──────────────────────────────────────────────────────
 
 def error_end(state: SalesWorkflowState) -> SalesWorkflowState:
-    print(f"[Graph] Workflow ended with error: {state.get('error_message')}")
+    import sse_manager
+    sse_manager.emit(state.get("thread_id"), {
+        "agent": "masterAgent",
+        "type": "agent_status",
+        "status": "error",
+        "message": f"Workflow terminated: {state.get('error_message', 'unknown error')}",
+    })
     return {**state, "current_step": "error"}
 
 
-# ── Build the graph ──────────────────────────────────────────────────────────
+# ── Conditional routing helpers ──────────────────────────────────────────────
+
+def _ok(state: SalesWorkflowState) -> str:
+    return "error_end" if state.get("error_message") else "continue"
+
+
+def route_after_profile(state: SalesWorkflowState) -> str:
+    return "error_end" if state.get("error_message") else "build_search_params"
+
+
+def route_after_validate_leads(state: SalesWorkflowState) -> str:
+    return "error_end" if state.get("error_message") else "browser_agent"
+
+
+def route_after_validate_enrichment(state: SalesWorkflowState) -> str:
+    return "error_end" if state.get("error_message") else "human_review"
+
+
+def route_after_human_review(state: SalesWorkflowState) -> str:
+    return "error_end" if state.get("error_message") else "crm_agent"
+
+
+def route_after_crm(state: SalesWorkflowState) -> str:
+    return "error_end" if state.get("error_message") else "review_activity_log"
+
+
+# ── Build and compile the graph ──────────────────────────────────────────────
 
 def build_graph() -> StateGraph:
     builder = StateGraph(SalesWorkflowState)
 
-    # Register nodes
+    # Master Agent nodes
     builder.add_node("parse_company_profile", parse_company_profile)
     builder.add_node("build_search_params", build_search_params)
+    builder.add_node("master_validate_leads", master_validate_leads)
+    builder.add_node("master_validate_enrichment", master_validate_enrichment)
+    builder.add_node("human_review", human_review_passthrough)
+    builder.add_node("review_activity_log", review_activity_log)
+
+    # Sub-agent nodes (only reachable through master-controlled edges)
     builder.add_node("data_agent", fetch_leads)
     builder.add_node("browser_agent", enrich_leads)
-    builder.add_node("human_review", human_review_checkpoint)
     builder.add_node("crm_agent", send_outreach)
-    builder.add_node("review_activity_log", review_activity_log)
+
     builder.add_node("error_end", error_end)
 
     # Entry point
     builder.set_entry_point("parse_company_profile")
 
-    # Edges
+    # Edges — each sub-agent is bracketed by master validation steps
     builder.add_conditional_edges(
-        "parse_company_profile",
-        route_after_profile,
+        "parse_company_profile", route_after_profile,
         {"build_search_params": "build_search_params", "error_end": "error_end"},
     )
     builder.add_edge("build_search_params", "data_agent")
+    builder.add_edge("data_agent", "master_validate_leads")
     builder.add_conditional_edges(
-        "data_agent",
-        route_after_data_agent,
+        "master_validate_leads", route_after_validate_leads,
         {"browser_agent": "browser_agent", "error_end": "error_end"},
     )
+    builder.add_edge("browser_agent", "master_validate_enrichment")
     builder.add_conditional_edges(
-        "browser_agent",
-        route_after_browser_agent,
+        "master_validate_enrichment", route_after_validate_enrichment,
         {"human_review": "human_review", "error_end": "error_end"},
     )
     builder.add_conditional_edges(
-        "human_review",
-        route_after_human_review,
-        {
-            "human_review": "human_review",   # loop while awaiting approval
-            "crm_agent": "crm_agent",
-            "error_end": "error_end",
-        },
+        "human_review", route_after_human_review,
+        {"crm_agent": "crm_agent", "error_end": "error_end"},
     )
     builder.add_conditional_edges(
-        "crm_agent",
-        route_after_crm,
+        "crm_agent", route_after_crm,
         {"review_activity_log": "review_activity_log", "error_end": "error_end"},
     )
     builder.add_edge("review_activity_log", END)
     builder.add_edge("error_end", END)
 
-    # Persist state between steps (enables Human-in-the-Loop interrupts)
+    # MemorySaver enables Human-in-the-Loop state persistence across interrupts
     checkpointer = MemorySaver()
     return builder.compile(
         checkpointer=checkpointer,
-        interrupt_before=["human_review"],   # pause before showing enriched CSV
+        interrupt_before=["human_review"],
     )
 
 
-# Exported compiled graph
 graph = build_graph()

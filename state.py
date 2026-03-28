@@ -43,6 +43,9 @@ class ActivityEntry(TypedDict):
 
 
 class SalesWorkflowState(TypedDict):
+    # ── Runtime identity (used for SSE routing) ──────────────────
+    thread_id: Optional[str]
+
     # ── Inputs ──────────────────────────────────────────────────
     company_profile: Optional[CompanyProfile]
     search_params: Optional[Dict[str, Any]]
