@@ -1,0 +1,45 @@
+{
+  "name": "CRM Agent",
+  "version": "0.1.0",
+  "role": "outreach_execution",
+  "description": "Composes personalized outreach messages and delivers them via the best available channel (email, contact form, or phone).",
+  "inputs": [
+    "approved_leads",
+    "company_profile"
+  ],
+  "outputs": [
+    "activity_log"
+  ],
+  "llm": "gpt-4o",
+  "delivery_channels": {
+    "email": {
+      "condition": "email field is present",
+      "tool": "SendGrid / Resend API",
+      "priority": 1
+    },
+    "contact_form": {
+      "condition": "email missing, contact_form_url present",
+      "tool": "Playwright form filler",
+      "priority": 2
+    },
+    "phone": {
+      "condition": "phone present (v1.1 only)",
+      "tool": "AI phone call API",
+      "priority": 3,
+      "status": "out_of_scope_mvp"
+    }
+  },
+  "email_template_variables": [
+    "contact_name",
+    "company_description",
+    "sender_company_value_proposition"
+  ],
+  "activity_log_schema": {
+    "company_name": "string",
+    "contact_name": "string",
+    "channel_used": "email | form | phone",
+    "status": "sent | failed | pending",
+    "timestamp": "ISO 8601",
+    "email_preview": "string"
+  }
+}

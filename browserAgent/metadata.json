@@ -1,0 +1,37 @@
+{
+  "name": "Browser Agent",
+  "version": "0.1.0",
+  "role": "contact_enrichment",
+  "description": "Uses web browsing and LLM reasoning to find detailed contact information for each prospect company.",
+  "inputs": [
+    "raw_leads",
+    "company_profile"
+  ],
+  "outputs": [
+    "enriched_leads",
+    "enriched_csv_path"
+  ],
+  "llm": "gpt-4o",
+  "tools": ["playwright", "browser-use"],
+  "steps": {
+    "step_a": {
+      "name": "Direct Search (Required)",
+      "description": "Search [company name] + contact/email/about; visit website, LinkedIn, and business directories",
+      "required_fields": ["company_name", "contact_person_name"],
+      "at_least_one_of": ["email", "phone", "contact_form_url"]
+    },
+    "step_b": {
+      "name": "Heuristic Discovery (v1.1, optional)",
+      "description": "Identify similar companies based on industry/product overlap and repeat Step A"
+    }
+  },
+  "output_schema": {
+    "company_name": "Full legal name",
+    "contact_name": "Decision-maker name (CEO, Purchasing Manager, etc.)",
+    "email": "Primary business email",
+    "phone": "Phone number (optional)",
+    "contact_form_url": "Web form URL if no email found",
+    "company_description": "Short summary for email personalization",
+    "source_url": "Where the info was found"
+  }
+}

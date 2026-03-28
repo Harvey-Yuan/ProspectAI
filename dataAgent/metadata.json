@@ -1,0 +1,17 @@
+{
+  "name": "Data Agent",
+  "version": "0.1.0",
+  "role": "lead_source",
+  "description": "Retrieves raw prospect records from trade/customs data. In MVP this is a dummy skill that always returns pre-loaded CSV files from the dataAgent/ directory.",
+  "inputs": [
+    "search_params"
+  ],
+  "outputs": [
+    "raw_leads",
+    "leads_csv_path"
+  ],
+  "mode": "dummy",
+  "data_directory": "./dataAgent",
+  "supported_formats": ["csv"],
+  "notes": "MVP dummy: ignores search_params and returns all CSV files found in data_directory. Real implementation would query ImportYeti / Panjiva API."
+}

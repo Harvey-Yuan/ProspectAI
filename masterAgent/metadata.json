@@ -1,0 +1,23 @@
+{
+  "name": "Master Agent (AI Sales)",
+  "version": "0.1.0",
+  "role": "orchestrator",
+  "description": "Central orchestrator. Holds company context, delegates tasks to sub-agents, and manages overall workflow state.",
+  "inputs": [
+    "company_profile",
+    "search_params"
+  ],
+  "outputs": [
+    "workflow_state",
+    "activity_log"
+  ],
+  "llm": "gpt-4o",
+  "responsibilities": [
+    "Parse and store company profile",
+    "Build search parameters for Data Agent",
+    "Route workflow between sub-agents",
+    "Enforce Human-in-the-Loop checkpoint",
+    "Collect and surface final activity log"
+  ],
+  "downstream_agents": ["dataAgent", "browserAgent", "crmAgent"]
+}
