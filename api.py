@@ -226,5 +226,35 @@ async def approve_campaign(thread_id: str, body: ApprovalRequest):
     return {"ok": True}
 
 
+@app.post("/api/test-email")
+async def test_email(request: Request):
+    """Send a test email to the currently logged-in Gmail account."""
+    gmail_token = request.session.get("gmail_token")
+    user        = request.session.get("user")
+    if not gmail_token or not user:
+        raise HTTPException(status_code=401, detail="Not authenticated with Gmail")
+
+    to_email  = user.get("email", "")
+    user_name = user.get("name", "there")
+    if not to_email:
+        raise HTTPException(status_code=400, detail="No email address in session")
+
+    ok = auth.send_gmail(
+        gmail_token,
+        to=to_email,
+        subject="✅ AI Sales Agent — Gmail connection test",
+        body=(
+            f"Hi {user_name},\n\n"
+            "Your Gmail account is successfully connected to AI Sales Agent! 🎉\n\n"
+            "You can now launch campaigns and send personalised outreach emails "
+            "directly from your inbox.\n\n"
+            "— AI Sales Agent"
+        ),
+    )
+    if not ok:
+        raise HTTPException(status_code=500, detail="Gmail API returned an error")
+    return {"ok": True, "sent_to": to_email}
+
+
 # Static frontend — must be mounted LAST
 app.mount("/", StaticFiles(directory="frontend", html=True), name="static")

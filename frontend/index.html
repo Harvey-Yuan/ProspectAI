@@ -147,6 +147,15 @@
             Sign out
           </button>
         </div>
+        <!-- Test email button -->
+        <button id="test-email-btn" onclick="sendTestEmail()"
+          class="mt-3 w-full flex items-center justify-center gap-2 text-xs
+                 bg-slate-800 hover:bg-slate-700 text-slate-300
+                 py-1.5 rounded-lg transition-colors border border-slate-700">
+          <span id="test-email-icon">📨</span>
+          <span id="test-email-label">Send Test Email</span>
+        </button>
+        <p id="test-email-result" class="text-xs mt-1.5 text-center hidden"></p>
       </div>
     </div>
 
@@ -589,6 +598,39 @@
       document.getElementById('login-box').classList.remove('hidden');
       document.getElementById('user-box').classList.add('hidden');
       document.querySelector('[name="sender_email"]').value = '';
+    }
+
+    async function sendTestEmail() {
+      const btn    = document.getElementById('test-email-btn');
+      const icon   = document.getElementById('test-email-icon');
+      const label  = document.getElementById('test-email-label');
+      const result = document.getElementById('test-email-result');
+
+      btn.disabled = true;
+      icon.textContent  = '';
+      icon.innerHTML    = '<span class="spinner"></span>';
+      label.textContent = 'Sending…';
+      result.classList.add('hidden');
+
+      try {
+        const res  = await fetch('/api/test-email', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          result.textContent  = `✅ Sent to ${data.sent_to}`;
+          result.className    = 'text-xs mt-1.5 text-center text-green-400';
+        } else {
+          result.textContent  = `❌ ${data.detail || 'Failed'}`;
+          result.className    = 'text-xs mt-1.5 text-center text-red-400';
+        }
+      } catch (err) {
+        result.textContent = `❌ ${err.message}`;
+        result.className   = 'text-xs mt-1.5 text-center text-red-400';
+      } finally {
+        result.classList.remove('hidden');
+        icon.innerHTML    = '📨';
+        label.textContent = 'Send Test Email';
+        btn.disabled      = false;
+      }
     }
 
     // Check login state on page load

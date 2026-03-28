@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import sse_manager
+from llm_client import chat
 from state import SalesWorkflowState, EnrichedLead, ActivityEntry, CompanyProfile
 
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
@@ -26,16 +27,33 @@ def _emit(state: SalesWorkflowState, **kwargs) -> None:
 
 
 def _compose_email(lead: EnrichedLead, profile: CompanyProfile) -> str:
-    """
-    TODO: call GPT-4o to write a personalised outreach email.
+    """Use LLM to write a personalised outreach email for the given lead."""
+    company_context = lead.get("company_description") or f"a company in {lead.get('company_name', 'your industry')}"
+    contact_name = lead.get("contact_name") or "the Procurement Manager"
 
-    Context for the prompt:
-      - Sender: profile["ai_persona_name"] at profile["company_name"]
-      - Value prop: profile["description"]
-      - Recipient: lead["contact_name"] at lead["company_name"]
-      - Personalisation hook: lead["company_description"]
-    """
-    raise NotImplementedError("Email composition via GPT-4o not yet implemented")
+    prompt = f"""You are {profile['ai_persona_name']}, a sales representative at {profile['company_name']}.
+
+Write a short, personalised B2B cold outreach email to {contact_name} at {lead.get('company_name', '')}.
+
+About your company:
+- Company: {profile['company_name']}
+- Products/services: {profile['products']}
+- Value proposition: {profile['description']}
+
+About the recipient's company:
+{company_context}
+
+Requirements:
+- Professional but warm tone, not generic or spammy
+- 3 short paragraphs: hook → value prop → CTA
+- Reference something specific about their company in the opening line
+- Clear call-to-action: suggest a brief 15-min call or a reply with questions
+- Sign off as {profile['ai_persona_name']} at {profile['company_name']}
+- Plain text only — no markdown, no bullet points, no subject line
+- Write the email body ONLY, starting directly with the greeting (e.g. "Hi {contact_name},")"""
+
+    response = chat(messages=[{"role": "user", "content": prompt}], temperature=0.7)
+    return response.content.strip()
 
 
 def _send_via_gmail(gmail_token: dict, to: str, subject: str, body: str) -> bool:
