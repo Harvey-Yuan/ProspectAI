@@ -114,6 +114,15 @@ def send_outreach(state: SalesWorkflowState) -> SalesWorkflowState:
         try:
             body    = _compose_email(lead, profile)
             preview = body[:200]
+            subject = f"Partnership opportunity — {profile.get('company_name', '')}"
+            _emit(state,
+                  type="crm_email_preview",
+                  recipient_name=lead.get("contact_name") or "—",
+                  recipient_email=lead.get("email") or "—",
+                  company=lead.get("company_name") or "—",
+                  subject=subject,
+                  body=body,
+                  status="composing")
 
             if lead.get("email"):
                 channel = "email"
@@ -121,15 +130,31 @@ def send_outreach(state: SalesWorkflowState) -> SalesWorkflowState:
                     ok = _send_via_gmail(
                         gmail_token,
                         to=lead["email"],
-                        subject=f"Partnership opportunity — {profile.get('company_name', '')}",
+                        subject=subject,
                         body=body,
                     )
                     status = "sent" if ok else "failed"
+                    _emit(state,
+                          type="crm_email_preview",
+                          recipient_name=lead.get("contact_name") or "—",
+                          recipient_email=lead.get("email") or "—",
+                          company=lead.get("company_name") or "—",
+                          subject=subject,
+                          body=body,
+                          status="sent" if ok else "failed")
                     if ok:
                         _emit(state, type="agent_status", status="running",
                               message=f"  ✓ Email sent to {lead['email']}")
                 else:
                     status = "pending"
+                    _emit(state,
+                          type="crm_email_preview",
+                          recipient_name=lead.get("contact_name") or "—",
+                          recipient_email=lead.get("email") or "—",
+                          company=lead.get("company_name") or "—",
+                          subject=subject,
+                          body=body,
+                          status="pending")
                     _emit(state, type="agent_status", status="running",
                           message=f"  ⚠ Skipped (no Gmail token): {lead['email']}")
 

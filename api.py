@@ -122,12 +122,14 @@ def _run_graph(thread_id: str, profile: CompanyProfileRequest,
             return
 
         # Pause: ask user to review enriched contacts
-        enriched = snapshot.values.get("enriched_leads") or []
+        enriched  = snapshot.values.get("enriched_leads") or []
+        raw_leads = snapshot.values.get("raw_leads") or []
         sse_manager.emit(thread_id, {
             "type": "human_review_needed",
             "agent": "masterAgent",
             "message": f"Paused — awaiting human review of {len(enriched)} enriched contacts.",
             "enriched_leads": enriched,
+            "raw_leads": raw_leads,
         })
 
         # Block until approved (up to 10 minutes)

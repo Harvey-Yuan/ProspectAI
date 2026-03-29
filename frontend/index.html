@@ -89,6 +89,127 @@
     ::-webkit-scrollbar       { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+
+    /* ── Browser Preview floating panel ── */
+    #browser-preview-panel {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 50;
+      background: #0a1628;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      box-shadow: 0 0 30px 4px rgba(16,185,129,0.12), 0 8px 32px rgba(0,0,0,0.6);
+      width: 420px;
+      overflow: hidden;
+      transition: width 0.3s ease, box-shadow 0.3s ease;
+    }
+    #browser-preview-panel.bp-large { width: 680px; }
+    #browser-preview-panel.bp-minimized { width: 240px; }
+    #browser-preview-panel.bp-minimized #bp-content { display: none; }
+    #browser-preview-panel.mode-browser { border-color: #10b981; box-shadow: 0 0 30px 4px rgba(16,185,129,0.18), 0 8px 32px rgba(0,0,0,0.6); }
+    #browser-preview-panel.mode-email   { border-color: #f59e0b; box-shadow: 0 0 30px 4px rgba(245,158,11,0.18), 0 8px 32px rgba(0,0,0,0.6); }
+
+    #bp-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px 8px 12px;
+      cursor: pointer;
+      user-select: none;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+
+    /* Tabs */
+    .bp-tab {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: pointer;
+      background: transparent;
+      color: #475569;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .bp-tab.active-browser { color: #6ee7b7; border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.1); }
+    .bp-tab.active-email   { color: #fcd34d; border-color: rgba(245,158,11,0.4);  background: rgba(245,158,11,0.1); }
+    .bp-tab:hover:not(.active-browser):not(.active-email) { color: #94a3b8; }
+
+    #bp-url-bar {
+      padding: 4px 12px;
+      background: #060f1e;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 0.65rem;
+      color: #475569;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    #bp-img-wrap { background: #000; line-height: 0; }
+    #bp-img { width: 100%; display: block; max-height: 280px; object-fit: contain; }
+    #browser-preview-panel.bp-large #bp-img { max-height: 440px; }
+
+    #bp-loading {
+      padding: 40px 0;
+      text-align: center;
+      font-size: 0.75rem;
+      color: #334155;
+    }
+
+    /* Email panel */
+    #bp-email-pane {
+      padding: 14px 14px 16px;
+      display: none;
+      max-height: 380px;
+      overflow-y: auto;
+    }
+    #browser-preview-panel.bp-large #bp-email-pane { max-height: 540px; }
+    .bp-email-meta {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 3px 8px;
+      font-size: 0.7rem;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .bp-email-meta .k { color: #475569; }
+    .bp-email-meta .v { color: #cbd5e1; font-weight: 500; overflow-wrap: anywhere; }
+    .bp-email-body {
+      font-size: 0.72rem;
+      line-height: 1.75;
+      color: #94a3b8;
+      white-space: pre-wrap;
+    }
+    .bp-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 10px;
+    }
+    .bp-status-composing { background: rgba(245,158,11,0.15); color: #fcd34d; }
+    .bp-status-sent      { background: rgba(34,197,94,0.15);  color: #4ade80; }
+    .bp-status-failed    { background: rgba(239,68,68,0.15);   color: #f87171; }
+    .bp-status-pending   { background: rgba(100,116,139,0.2);  color: #94a3b8; }
+
+    @keyframes bp-flash {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+    .bp-live-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      flex-shrink: 0;
+      animation: bp-flash 1s ease-in-out infinite;
+    }
+    .bp-live-dot.green  { background: #10b981; }
+    .bp-live-dot.amber  { background: #f59e0b; }
   </style>
 </head>
 <body class="flex min-h-screen text-white">
@@ -292,6 +413,37 @@
         </div>
       </div>
 
+      <!-- ── Raw Leads Panel (Data Agent output) ─────────────────── -->
+      <div id="raw-leads-panel"
+           class="hidden bg-slate-900 rounded-2xl border border-blue-500/20 overflow-hidden">
+        <div class="px-5 py-3 bg-blue-500/10 border-b border-blue-500/20
+                    flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span>📊</span>
+            <p class="font-semibold text-blue-300 text-sm">
+              Raw Leads — <span id="raw-leads-count">0</span> companies from Data Agent
+            </p>
+          </div>
+          <button onclick="toggleRawLeads()"
+            class="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            id="raw-leads-toggle">Show ▾</button>
+        </div>
+        <div id="raw-leads-body" class="hidden overflow-x-auto max-h-56">
+          <table class="w-full text-xs">
+            <thead class="bg-slate-800/60 sticky top-0">
+              <tr>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">#</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">Company</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">Country</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">HS Code</th>
+                <th class="text-left px-4 py-2 text-slate-400 font-medium">Product</th>
+              </tr>
+            </thead>
+            <tbody id="raw-leads-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ── Human Review Panel ────────────────────────────────── -->
       <div id="review-panel"
            class="hidden bg-slate-900 rounded-2xl border border-yellow-500/30 overflow-hidden">
@@ -347,6 +499,67 @@
       </div>
 
     </main>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════
+       Agent Activity floating panel (Browser Preview + Email Preview)
+  ══════════════════════════════════════════════════════════ -->
+  <div id="browser-preview-panel" class="hidden">
+
+    <!-- ── Header ── -->
+    <div id="bp-header">
+      <div class="bp-live-dot green" id="bp-live-dot" style="display:none"></div>
+      <!-- Tabs -->
+      <button id="tab-browser" class="bp-tab active-browser"
+              onclick="event.stopPropagation(); switchBpTab('browser')">🌐 Browser</button>
+      <button id="tab-email"   class="bp-tab"
+              onclick="event.stopPropagation(); switchBpTab('email')">📧 Email</button>
+      <!-- Badge for unread tab -->
+      <span id="bp-unread-badge"
+            style="font-size:0.6rem; background:#f59e0b; color:#000; border-radius:999px;
+                   padding:1px 6px; font-weight:700; display:none">NEW</span>
+      <span style="flex:1"></span>
+      <!-- Minimise (click header also works) -->
+      <button onclick="event.stopPropagation(); toggleBpMinimize()"
+              id="bp-min-btn"
+              style="background:transparent; border:none; cursor:pointer; padding:2px 5px;
+                     color:#475569; font-size:0.85rem; line-height:1"
+              title="Minimise / Restore">⊟</button>
+      <!-- Resize -->
+      <button id="bp-resize-btn"
+              onclick="event.stopPropagation(); toggleBpSize()"
+              style="background:transparent; border:none; cursor:pointer; padding:2px 5px;
+                     color:#475569; font-size:0.8rem; line-height:1"
+              title="Expand / Shrink">⤢</button>
+      <!-- Close -->
+      <button onclick="event.stopPropagation(); hideBrowserPreview()"
+              style="background:transparent; border:none; cursor:pointer; padding:2px 5px;
+                     color:#475569; font-size:0.8rem; line-height:1"
+              title="Close">✕</button>
+    </div>
+
+    <!-- ── Content ── -->
+    <div id="bp-content">
+
+      <!-- Browser tab -->
+      <div id="bp-browser-pane">
+        <div id="bp-url-bar">about:blank</div>
+        <div id="bp-img-wrap">
+          <div id="bp-loading">Waiting for browser activity…</div>
+          <img id="bp-img" src="" alt="browser screenshot" style="display:none" />
+        </div>
+      </div>
+
+      <!-- Email tab -->
+      <div id="bp-email-pane">
+        <div id="bp-email-inner">
+          <p style="color:#334155; font-size:0.75rem; text-align:center; padding:40px 0">
+            Waiting for CRM Agent to compose emails…
+          </p>
+        </div>
+      </div>
+
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════════
@@ -422,11 +635,23 @@
       }
       if (type === 'human_review_needed') {
         pendingLeads = ev.enriched_leads || [];
+        showRawLeads(ev.raw_leads || []);
         appendLog('masterAgent', message);
         setCard('masterAgent', 'done', 'Waiting for human review...');
         setSpinner(false);
         setHeaderStatus('⏸ Awaiting human review');
         showReview(pendingLeads);
+        return;
+      }
+
+      // browser screenshot
+      if (type === 'browser_screenshot') {
+        updateBrowserPreview(ev);
+        return;
+      }
+      // crm email preview
+      if (type === 'crm_email_preview') {
+        updateEmailPreview(ev);
         return;
       }
 
@@ -490,6 +715,29 @@
     function clearLog() {
       document.getElementById('sse-log').innerHTML =
         '<p class="text-slate-700 text-xs">Log cleared.</p>';
+    }
+
+    // ── Raw Leads table ────────────────────────────────────────────────────
+    function showRawLeads(leads) {
+      if (!leads || leads.length === 0) return;
+      document.getElementById('raw-leads-count').textContent = leads.length;
+      const tbody = document.getElementById('raw-leads-tbody');
+      tbody.innerHTML = leads.map((l, i) => `
+        <tr class="border-t border-slate-800/50 hover:bg-slate-800/30">
+          <td class="px-4 py-2 text-slate-600">${i + 1}</td>
+          <td class="px-4 py-2 text-slate-200 font-medium">${l.company_name || '—'}</td>
+          <td class="px-4 py-2 text-slate-400">${l.country || '—'}</td>
+          <td class="px-4 py-2 text-blue-400 font-mono">${l.hs_code || '—'}</td>
+          <td class="px-4 py-2 text-slate-400 truncate max-w-[180px]">${l.product || '—'}</td>
+        </tr>`).join('');
+      document.getElementById('raw-leads-panel').classList.remove('hidden');
+    }
+
+    function toggleRawLeads() {
+      const body   = document.getElementById('raw-leads-body');
+      const toggle = document.getElementById('raw-leads-toggle');
+      const hidden = body.classList.toggle('hidden');
+      toggle.textContent = hidden ? 'Show ▾' : 'Hide ▴';
     }
 
     // ── Human review ───────────────────────────────────────────────────────
@@ -633,6 +881,105 @@
       }
     }
 
+    // ── Browser Preview panel ──────────────────────────────────────────────
+    let bpActiveTab = 'browser'; // 'browser' | 'email'
+
+    function switchBpTab(tab) {
+      bpActiveTab = tab;
+      document.getElementById('bp-browser-pane').style.display = tab === 'browser' ? 'block' : 'none';
+      document.getElementById('bp-email-pane').style.display   = tab === 'email'   ? 'block' : 'none';
+
+      const tabBrowser = document.getElementById('tab-browser');
+      const tabEmail   = document.getElementById('tab-email');
+      tabBrowser.className = 'bp-tab' + (tab === 'browser' ? ' active-browser' : '');
+      tabEmail.className   = 'bp-tab' + (tab === 'email'   ? ' active-email'   : '');
+
+      const panel = document.getElementById('browser-preview-panel');
+      panel.classList.remove('mode-browser', 'mode-email');
+      panel.classList.add(tab === 'browser' ? 'mode-browser' : 'mode-email');
+
+      // Clear unread badge when switching to email tab
+      if (tab === 'email') document.getElementById('bp-unread-badge').style.display = 'none';
+    }
+
+    function updateBrowserPreview(ev) {
+      const panel   = document.getElementById('browser-preview-panel');
+      const img     = document.getElementById('bp-img');
+      const loading = document.getElementById('bp-loading');
+      const urlBar  = document.getElementById('bp-url-bar');
+      const liveDot = document.getElementById('bp-live-dot');
+
+      panel.classList.remove('hidden');
+      liveDot.className = 'bp-live-dot green';
+      liveDot.style.display = 'block';
+
+      if (ev.url)   urlBar.textContent = ev.url;
+
+      img.onload = () => { loading.style.display = 'none'; img.style.display = 'block'; };
+      img.src = `data:image/jpeg;base64,${ev.image}`;
+
+      // Auto-switch to browser tab if not already there
+      if (bpActiveTab !== 'browser') return;
+      switchBpTab('browser');
+    }
+
+    function updateEmailPreview(ev) {
+      const panel    = document.getElementById('browser-preview-panel');
+      const liveDot  = document.getElementById('bp-live-dot');
+      const inner    = document.getElementById('bp-email-inner');
+      const badge    = document.getElementById('bp-unread-badge');
+
+      panel.classList.remove('hidden');
+      liveDot.className = 'bp-live-dot amber';
+      liveDot.style.display = 'block';
+
+      const statusMap = {
+        composing: ['bp-status-composing', '✍️ Composing…'],
+        sent:      ['bp-status-sent',      '✓ Sent'],
+        failed:    ['bp-status-failed',    '✗ Failed'],
+        pending:   ['bp-status-pending',   '⏸ Pending (no Gmail)'],
+      };
+      const [cls, label] = statusMap[ev.status] || statusMap.pending;
+
+      inner.innerHTML = `
+        <span class="bp-status-badge ${cls}">${label}</span>
+        <div class="bp-email-meta">
+          <span class="k">To</span>
+          <span class="v">${ev.recipient_name} &lt;${ev.recipient_email}&gt;</span>
+          <span class="k">Co.</span>
+          <span class="v">${ev.company}</span>
+          <span class="k">Subject</span>
+          <span class="v">${ev.subject}</span>
+        </div>
+        <div class="bp-email-body">${ev.body.replace(/</g,'&lt;')}</div>`;
+
+      // Auto-switch to email tab; if on browser tab show unread badge
+      if (bpActiveTab !== 'email') {
+        badge.style.display = 'inline';
+      }
+      switchBpTab('email');
+    }
+
+    function toggleBpMinimize() {
+      const panel  = document.getElementById('browser-preview-panel');
+      const minBtn = document.getElementById('bp-min-btn');
+      const mini   = panel.classList.toggle('bp-minimized');
+      minBtn.textContent = mini ? '⊞' : '⊟';
+    }
+
+    function toggleBpSize() {
+      const panel = document.getElementById('browser-preview-panel');
+      panel.classList.remove('bp-minimized');
+      panel.classList.toggle('bp-large');
+      document.getElementById('bp-resize-btn').textContent =
+        panel.classList.contains('bp-large') ? '⤡' : '⤢';
+      document.getElementById('bp-min-btn').textContent = '⊟';
+    }
+
+    function hideBrowserPreview() {
+      document.getElementById('browser-preview-panel').classList.add('hidden');
+    }
+
     // Check login state on page load
     checkAuth();
 
@@ -646,6 +993,22 @@
       });
       document.getElementById('done-banner').classList.add('hidden');
       document.getElementById('running-badge').classList.add('hidden');
+      document.getElementById('raw-leads-panel').classList.add('hidden');
+      document.getElementById('raw-leads-tbody').innerHTML = '';
+      // Reset browser preview
+      const bpPanel = document.getElementById('browser-preview-panel');
+      bpPanel.classList.add('hidden');
+      bpPanel.classList.remove('bp-minimized', 'bp-large', 'mode-browser', 'mode-email');
+      document.getElementById('bp-img').src = '';
+      document.getElementById('bp-img').style.display = 'none';
+      document.getElementById('bp-loading').style.display = 'block';
+      document.getElementById('bp-live-dot').style.display = 'none';
+      document.getElementById('bp-url-bar').textContent = 'about:blank';
+      document.getElementById('bp-email-inner').innerHTML =
+        '<p style="color:#334155;font-size:0.75rem;text-align:center;padding:40px 0">Waiting for CRM Agent to compose emails…</p>';
+      document.getElementById('bp-unread-badge').style.display = 'none';
+      bpActiveTab = 'browser';
+      switchBpTab('browser');
       document.getElementById('launch-icon').textContent  = '🚀';
       document.getElementById('launch-label').textContent = 'Launch Campaign';
       setHeaderStatus('No active campaign');
